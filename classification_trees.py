@@ -2,9 +2,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pprint import pprint
 import collections
-from typing import Tuple
+from typing import Tuple, Optional
 import numpy as np
-
+import time
+import math
+import multiprocessing as mp
 
 @dataclass
 class Node:
@@ -19,38 +21,38 @@ class Node:
     def is_leaf(self):
         return True if self.majority_class is not None else False
 
-@dataclass
 class ClassificationTree:
 
     """Builds a binary classification tree using Gini-index as impurity criterion for best splits."""
     
-    nmin: int = 1   #minimum samples in a node to consider split, if < then node becomes leaf
-    minleaf: int = 1   #minimum required leaf size after splitting of a node
-    nfeats: int = None   #number of features to consider in a split (set to None, i.e. all features for regular classification trees)
-    
-    def __post_init__(self):
-        assert self.nmin > 0
+    def __init__(self, nmin: int = 1, minleaf: int = 1) -> None:
+        self.nmin = nmin
+        self.minleaf = minleaf
+        assert self.nmin > 1
         assert self.minleaf > 0
-        self.tree = []
         
-    def fit(self, X: np.ndarray, y: np.ndarray) -> None:
+    def fit(self, X: np.ndarray, y: np.ndarray, nfeats: Optional[int] = None) -> None:
+
+        """Call this function to fit the classifier."""
+
         assert isinstance(X, np.ndarray), "X is not an n-dimensional numpy array. If X is a list of lists, convert it to an n-dimensional numpy array."
         assert isinstance(y, np.ndarray), "y is not an n-dimensional numpy array. If y is a list, convert it to a 1-dimensional numpy array."
         assert np.ndim(y) == 1, "Dimension of y is not 1."
         assert len(X) == len(y), "The number of rows in X is not equal to the size of y."
         
         # nfeats to use each split. Else clause ensures that nfeats used cannot exceed the total nfeats of the data (in case a user accidentally specifies more)
+        self.nfeats = nfeats
         if self.nfeats is None:
             self.nfeats = X.shape[1]
         else:
             assert self.nfeats > 0, "nfeats should be a positive integer."
             self.nfeats = min(self.nfeats, X.shape[1])
         
-        self.Xcol_dim = X.shape[1] # Store the X column dimension for an error check in predict func
+        self.Xcol_dim = X.shape[1] # Store the X column dimension for an assertion check in predict func
         
-        self.tree_grow(X, y)
+        self.tree = self.tree_grow(X, y) # Start growing the tree. The whole tree is stored in self.tree 
 
-    def tree_grow(self, X, y) -> None:
+    def tree_grow(self, X, y) -> Node:
         
         """Recursively grow the decision tree. If a stopping criterium is met, the recursive function returns a 
         leaf Node, else an internal Node object (parent node). The Nodes are stored in the 'tree' instance variable. """
@@ -139,12 +141,10 @@ class ClassificationTree:
     def create_leaf_node(self, y: np.ndarray) -> Node:
         majority_class = self.majority_class(y)
         leaf_node = Node(majority_class=majority_class)
-        self.tree.append(leaf_node)
         return leaf_node 
 
     def create_internal_node(self, split_feature_idx, best_thresh, l_child, r_child) -> Node:
         internal_node = Node(split_feature_idx, best_thresh, l_child, r_child)
-        self.tree.append(internal_node)
         return internal_node
 
     def majority_class(self, y: np.ndarray) -> int:
@@ -154,6 +154,7 @@ class ClassificationTree:
             return max(collections.Counter(y))
          
     def predict(self, X: np.ndarray) -> np.ndarray:
+        
         """Traverse the tree starting at root until arrived at a leaf node. When arrived at a leaf node, 
         return the majority class prediction."""
 
@@ -162,7 +163,7 @@ class ClassificationTree:
         predicted_y = []
         for obs in X:
             
-            current_node = self.tree[-1] # start the root node
+            current_node = self.tree # Starts at the root node
             while not current_node.is_leaf:
                 
                 if obs[current_node.split_feature_idx] <= current_node.split_threshold:
@@ -178,19 +179,148 @@ class ClassificationTree:
 
 class RandomForestClassifier:
     
-    pass
+    """Class for building a Random Forest classifier."""
 
+    def __init__(self, ntrees: int = 100, nmin: int = 2, minleaf: int = 1) -> None:
+        self.ntrees = ntrees
+        self.nmin = nmin
+        self.minleaf = minleaf
+        assert self.ntrees > 1, "ntrees needs to be at least 2."
+        assert self.nmin > 1
+        assert self.minleaf > 0
+
+    def fit(self, X: np.ndarray, y: np.ndarray, nfeats: Optional[int] = None) -> None:
+
+        """Fit the Random forest classifier. Creates a multiprocessing pool to speed up tree building."""
+
+        self.nfeats = nfeats
+        if self.nfeats is None:
+            # Use sqrt of total predictor variables (Random Forest)
+            self.nfeats = math.ceil(math.sqrt(X.shape[1]))
+        else:
+            assert self.nfeats > 0
+            self.nfeats = min(self.nfeats, X.shape[1])
+
+        self.Xcol_dim = X.shape[1] # Store the X column dimension for an assertion check in predict func
+
+        # Create ntrees number of bootstrap samples
+        # bootstrap_samples is a list of tuples with each tuple a bootstrap sample (X, y) used to train a tree
+        bootstrap_samples = []
+        for _ in range(self.ntrees):
+            bootstrap_samples.append(self.build_bootstrap_sample(X, y))
+        
+        # Start multiprocessing pool
+        p = mp.Pool(processes=mp.cpu_count())
+        self.clfs = p.map(self.tree_grow, bootstrap_samples)
+        p.close()
+        p.join()
+
+    def tree_grow(self, data: Tuple[np.ndarray, np.ndarray]) -> ClassificationTree:
+        
+        """Grow the trees using bootstrapped samples."""
+
+        X, y = data
+        clf = ClassificationTree(nmin=self.nmin, minleaf=self.minleaf)
+        clf.fit(X, y, nfeats=self.nfeats)
+        return clf
+
+    def build_bootstrap_sample(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        
+        """Builds a bootstrap sample of the data."""
+
+        indices = np.random.choice(len(X), size=len(X), replace=True)
+        bootstrap_sample = X[indices], y[indices]
+        return bootstrap_sample
+
+    def predict(self, X: np.ndarray) -> int:
+
+        """Traverse all constructed trees and return majority vote class prediction."""
+
+        assert X.shape[1] == self.Xcol_dim, "Input X column dim does not correspond with the X column dim used for training."
+        
+#        print(X)
+        
+        predictions_y = np.empty((len(X), self.ntrees), dtype=int)
+        j = 0
+        for clf in self.clfs:
+            predictions_y[:, j] = clf.predict(X)
+            j += 1
+        
+        # Get majority vote for each row (observation)
+        class_pred = np.apply_along_axis(np.bincount, 1, predictions_y).argmax(axis=1)
+
+        return class_pred
 
 if __name__ == '__main__':  
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import confusion_matrix
+    import itertools
+
     data = np.genfromtxt("pima-indians-diabetes.csv", delimiter=',')
     X, y = data[:, 0:8], data[:, 8]
     y = y.astype('int64')
-    # print(X[0:5, :])
-    # print(y[0:5])
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
-    clf = ClassificationTree()
-    clf.fit(X, y)
-    # pprint(clf.tree[-1])
+#    data = np.genfromtxt("credit-data.csv", delimiter=',')[1:, :]
+#    X, y = data[:, 0:5], data[:, 5]
+#    y = y.astype('int')
 
-    X_test = np.array([[1,103,30,38,83,43.3,0.183,33]])
-    print(clf.predict(X_test))
+    t1 = time.time()
+
+    rf_clf = RandomForestClassifier()
+    rf_clf.fit(X_train, y_train)
+
+    t2 = time.time()
+    print(f'Time: {t2-t1:.2f}s')
+
+    y_pred = rf_clf.predict(X_test)
+
+#    print(y_pred)
+
+    cf_matrix = confusion_matrix(y_test, y_pred)
+    tn, fp, fn, tp = cf_matrix.ravel()
+    print(cf_matrix)
+
+    accuracy = (tn + tp)/(tn + tp + fp + fn)
+    print(f'Accuracy {accuracy:.2f}')
+
+#    print(y_pred)
+
+#    clf = ClassificationTree()
+#    clf.fit(X_train, y_train)
+#
+#    y_pred = clf.predict(X_test)
+#
+
+#------ Multiprocessing to speed up hyperparameter search for trees and RF (voor RF voeg ntrees toe)
+#    def find_best_nmin_minleaf(params: Tuple[int, int]) -> Tuple[ClassificationTree, float]:
+#        
+#        nmin, minleaf = params
+#        clf = ClassificationTree(nmin=nmin, minleaf=minleaf)
+#        clf.fit(X_train, y_train)
+#        y_pred = clf.predict(X_test)
+#        tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+#        accuracy = (tn + tp)/(tn + tp + fp + fn)
+#        return clf, accuracy
+#    
+#    nmin = range(1, 51)
+#    minleaf = range(1,51)
+#    cartesian_product = list(itertools.product(nmin, minleaf))
+#
+#    t1 = time.time()
+#
+#    p = mp.Pool(processes=mp.cpu_count())
+#    clfs = p.map(find_best_nmin_minleaf, cartesian_product)
+#    p.close()
+#    p.join()
+#
+#    t_total = time.time() - t1
+#    print(f'Time total: {t_total:.2f}')
+#    
+#    pprint(clfs)
+#
+#    best_clf = max(clfs, key=lambda x: x[1])
+#    pprint(best_clf)
+
+
+
