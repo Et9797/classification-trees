@@ -238,18 +238,18 @@ class RandomForestClassifier:
 
         assert X.shape[1] == self.Xcol_dim, "Input X column dim does not correspond with the X column dim used for training."
         
-#        print(X)
-        
         predictions_y = np.empty((len(X), self.ntrees), dtype=int)
         j = 0
         for clf in self.clfs:
             predictions_y[:, j] = clf.predict(X)
             j += 1
         
-        # Get majority vote for each row (observation)
-        class_pred = np.apply_along_axis(np.bincount, 1, predictions_y).argmax(axis=1)
+        majority_vote = []
+        for row in predictions_y:
+            most_predicted_class = collections.Counter(row).most_common(1)[0][0]
+            majority_vote.append(most_predicted_class)
 
-        return class_pred
+        return np.array(majority_vote)
 
 if __name__ == '__main__':  
     from sklearn.model_selection import train_test_split
@@ -259,11 +259,7 @@ if __name__ == '__main__':
     data = np.genfromtxt("pima-indians-diabetes.csv", delimiter=',')
     X, y = data[:, 0:8], data[:, 8]
     y = y.astype('int64')
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
-#    data = np.genfromtxt("credit-data.csv", delimiter=',')[1:, :]
-#    X, y = data[:, 0:5], data[:, 5]
-#    y = y.astype('int')
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.01)
 
     t1 = time.time()
 
@@ -274,8 +270,6 @@ if __name__ == '__main__':
     print(f'Time: {t2-t1:.2f}s')
 
     y_pred = rf_clf.predict(X_test)
-
-#    print(y_pred)
 
     cf_matrix = confusion_matrix(y_test, y_pred)
     tn, fp, fn, tp = cf_matrix.ravel()
@@ -291,36 +285,3 @@ if __name__ == '__main__':
 #
 #    y_pred = clf.predict(X_test)
 #
-
-#------ Multiprocessing to speed up hyperparameter search for trees and RF (voor RF voeg ntrees toe)
-#    def find_best_nmin_minleaf(params: Tuple[int, int]) -> Tuple[ClassificationTree, float]:
-#        
-#        nmin, minleaf = params
-#        clf = ClassificationTree(nmin=nmin, minleaf=minleaf)
-#        clf.fit(X_train, y_train)
-#        y_pred = clf.predict(X_test)
-#        tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
-#        accuracy = (tn + tp)/(tn + tp + fp + fn)
-#        return clf, accuracy
-#    
-#    nmin = range(1, 51)
-#    minleaf = range(1,51)
-#    cartesian_product = list(itertools.product(nmin, minleaf))
-#
-#    t1 = time.time()
-#
-#    p = mp.Pool(processes=mp.cpu_count())
-#    clfs = p.map(find_best_nmin_minleaf, cartesian_product)
-#    p.close()
-#    p.join()
-#
-#    t_total = time.time() - t1
-#    print(f'Time total: {t_total:.2f}')
-#    
-#    pprint(clfs)
-#
-#    best_clf = max(clfs, key=lambda x: x[1])
-#    pprint(best_clf)
-
-
-
