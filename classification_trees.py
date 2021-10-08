@@ -25,7 +25,7 @@ class ClassificationTree:
 
     """Builds a binary classification tree using Gini-index as impurity criterion for best splits."""
     
-    def __init__(self, nmin: int = 1, minleaf: int = 1) -> None:
+    def __init__(self, nmin: int = 2, minleaf: int = 1) -> None:
         self.nmin = nmin
         self.minleaf = minleaf
         assert self.nmin > 1
@@ -46,13 +46,13 @@ class ClassificationTree:
             self.nfeats = X.shape[1]
         else:
             assert self.nfeats > 0, "nfeats should be a positive integer."
-            self.nfeats = min(self.nfeats, X.shape[1])
+            self.nfeats = round(min(self.nfeats, X.shape[1]))
         
         self.Xcol_dim = X.shape[1] # Store the X column dimension for an assertion check in predict func
         
         self.tree = self.tree_grow(X, y) # Start growing the tree. The whole tree is stored in self.tree 
 
-    def tree_grow(self, X, y) -> Node:
+    def tree_grow(self, X: np.ndarray, y: np.ndarray) -> Node:
         
         """Recursively grow the decision tree. If a stopping criterium is met, the recursive function returns a 
         leaf Node, else an internal Node object (parent node). The Nodes are stored in the 'tree' instance variable. """
@@ -174,7 +174,7 @@ class ClassificationTree:
             else:
                 predicted_y.append(current_node.majority_class)
             
-        return np.asarray(predicted_y)
+        return np.array(predicted_y)
 
 
 class RandomForestClassifier:
@@ -196,10 +196,10 @@ class RandomForestClassifier:
         self.nfeats = nfeats
         if self.nfeats is None:
             # Use sqrt of total predictor variables (Random Forest)
-            self.nfeats = math.ceil(math.sqrt(X.shape[1]))
+            self.nfeats = round(math.sqrt(X.shape[1]))
         else:
             assert self.nfeats > 0
-            self.nfeats = min(self.nfeats, X.shape[1])
+            self.nfeats = round(min(self.nfeats, X.shape[1]))
 
         self.Xcol_dim = X.shape[1] # Store the X column dimension for an assertion check in predict func
 
@@ -259,11 +259,11 @@ if __name__ == '__main__':
     data = np.genfromtxt("pima-indians-diabetes.csv", delimiter=',')
     X, y = data[:, 0:8], data[:, 8]
     y = y.astype('int64')
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.01)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20)
 
     t1 = time.time()
 
-    rf_clf = RandomForestClassifier()
+    rf_clf = RandomForestClassifier(nmin=20, minleaf=5)
     rf_clf.fit(X_train, y_train)
 
     t2 = time.time()
