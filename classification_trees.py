@@ -1,3 +1,16 @@
+"""
+For building classification trees and Random forest classifiers.
+Call `fit` method on the classifier object with 2 numpy arrays 
+of your X and y training data as input parameters. Call the `predict` 
+method on the object using as input parameter the X test data to
+make predictions on unforeseen data.
+
+Made by:
+    Etjen Ahmic
+    Kan Li
+    Ziyuan Wang
+"""
+
 from __future__ import annotations
 from dataclasses import dataclass
 from pprint import pprint
@@ -148,10 +161,8 @@ class ClassificationTree:
         return internal_node
 
     def majority_class(self, y: np.ndarray) -> int:
-        if len(np.unique(y)) > 1:
-            return max(collections.Counter(y), key=lambda k: y[k]) 
-        else:
-            return max(collections.Counter(y))
+        majority_class = collections.Counter(y).most_common(1)[0][0]
+        return majority_class
          
     def predict(self, X: np.ndarray) -> np.ndarray:
         
