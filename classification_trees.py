@@ -13,7 +13,6 @@ Made by:
 
 from __future__ import annotations
 from dataclasses import dataclass
-from pprint import pprint
 import collections
 from typing import Tuple, Optional
 import numpy as np
@@ -21,18 +20,19 @@ import time
 import math
 import multiprocessing as mp
 
+
 @dataclass
 class Node:
     
+    majority_class: int = None
     split_feature_idx: int = None
     split_threshold: float = None
     l_child: Node = None
     r_child: Node = None
-    majority_class: int = None
 
     @property
     def is_leaf(self):
-        return True if self.majority_class is not None else False
+        return True if self.l_child is None and self.r_child is None else False
 
 class ClassificationTree:
 
@@ -90,7 +90,7 @@ class ClassificationTree:
         r_child_idx = np.argwhere(X[:, best_feature_idx] > best_threshold).flatten()  #indices
         l_child = self.tree_grow(X[l_child_idx, :], y[l_child_idx])  # node object
         r_child = self.tree_grow(X[r_child_idx, :], y[r_child_idx])  # node object
-        parent_node = self.create_internal_node(best_feature_idx, best_threshold, l_child, r_child)  #node object
+        parent_node = self.create_internal_node(y, best_feature_idx, best_threshold, l_child, r_child)  #node object
         return parent_node
 
     def find_best_split(self, X: np.ndarray, y: np.ndarray) -> Tuple[int, float]:
@@ -156,8 +156,9 @@ class ClassificationTree:
         leaf_node = Node(majority_class=majority_class)
         return leaf_node 
 
-    def create_internal_node(self, split_feature_idx, best_thresh, l_child, r_child) -> Node:
-        internal_node = Node(split_feature_idx, best_thresh, l_child, r_child)
+    def create_internal_node(self, y, split_feature_idx, best_thresh, l_child, r_child) -> Node:
+        majority_class = self.majority_class(y)
+        internal_node = Node(majority_class, split_feature_idx, best_thresh, l_child, r_child)
         return internal_node
 
     def majority_class(self, y: np.ndarray) -> int:
