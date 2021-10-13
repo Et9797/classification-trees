@@ -2,13 +2,13 @@
 For building classification trees and Random forest classifiers.
 Call `fit` method on the classifier object with 2 numpy arrays 
 of your X and y training data as input parameters. Call the `predict` 
-method on the object using as input parameter the X test data to
-make predictions on unforeseen data.
+method on the object using as input parameter the X test data in order
+to make predictions on unseen data.
 
 Made by:
-    Etjen Ahmic
-    Kan Li
-    Ziyuan Wang
+    Etjen Ahmic (5617030)
+    Kan Li (2216612)
+    Ziyuan Wang ()
 """
 
 from __future__ import annotations
@@ -266,7 +266,6 @@ class RandomForestClassifier:
 if __name__ == '__main__':  
     from sklearn.model_selection import train_test_split
     from sklearn.metrics import confusion_matrix
-    import itertools
 
     data = np.genfromtxt("pima-indians-diabetes.csv", delimiter=',')
     X, y = data[:, 0:8], data[:, 8]
@@ -288,7 +287,7 @@ if __name__ == '__main__':
     print(cf_matrix)
 
     accuracy = (tn + tp)/(tn + tp + fp + fn)
-    print(f'Accuracy {accuracy:.2f}')
+    print(f'Accuracy: {accuracy:.2f}')
 
 #    print(y_pred)
 
