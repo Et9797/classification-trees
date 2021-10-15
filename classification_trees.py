@@ -8,7 +8,7 @@ to make predictions on unseen data.
 Made by:
     Etjen Ahmic (5617030)
     Kan Li (2216612)
-    Ziyuan Wang ()
+    Ziyuan Wang (9380744)
 """
 
 from __future__ import annotations
@@ -267,7 +267,7 @@ if __name__ == '__main__':
     from sklearn.model_selection import train_test_split
     from sklearn.metrics import confusion_matrix
 
-    # Testing only (pima indians diabetes dataset), see the Jupyter notebook for models trained on bug data set.
+    # For testing (pima indians diabetes dataset). See the Jupyter notebook for models trained on the bug data set.
     data = np.genfromtxt("pima-indians-diabetes.csv", delimiter=',')
     X, y = data[:, 0:8], data[:, 8]
     y = y.astype('int64')
