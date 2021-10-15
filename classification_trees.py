@@ -194,7 +194,7 @@ class RandomForestClassifier:
     """Class for building a Random Forest classifier."""
 
     def __init__(self, ntrees: int = 100, nmin: int = 2, minleaf: int = 1) -> None:
-        self.ntrees = ntrees
+        self.ntrees = ntrees #ntrees = m (no. bootstrap samples)
         self.nmin = nmin
         self.minleaf = minleaf
         assert self.ntrees > 1, "ntrees needs to be at least 2."
@@ -263,10 +263,11 @@ class RandomForestClassifier:
 
         return np.array(majority_vote)
 
-if __name__ == '__main__':  
+if __name__ == '__main__':
     from sklearn.model_selection import train_test_split
     from sklearn.metrics import confusion_matrix
 
+    # Testing only (pima indians diabetes dataset), see the Jupyter notebook for models trained on bug data set.
     data = np.genfromtxt("pima-indians-diabetes.csv", delimiter=',')
     X, y = data[:, 0:8], data[:, 8]
     y = y.astype('int64')
@@ -295,4 +296,3 @@ if __name__ == '__main__':
 #    clf.fit(X_train, y_train)
 #
 #    y_pred = clf.predict(X_test)
-#
