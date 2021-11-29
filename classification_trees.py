@@ -4,11 +4,6 @@ Call `fit` method on the classifier object with 2 numpy arrays
 of your X and y training data as input parameters. Call the `predict` 
 method on the object using as input parameter the X test data in order
 to make predictions on unseen data.
-
-Made by:
-    Etjen Ahmic (5617030)
-    Kan Li (2216612)
-    Ziyuan Wang (9380744)
 """
 
 from __future__ import annotations
